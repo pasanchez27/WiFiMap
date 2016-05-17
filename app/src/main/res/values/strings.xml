@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">WiFiMap</string>
+    <string name="title_activity_maps">Map</string>
+    <string name="google_maps_key">AIzaSyBEwKnJ380uSW5zfJkY9cz0iqRpm54X5vc</string>
+</resources>
