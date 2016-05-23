@@ -2,4 +2,10 @@
     <string name="app_name">WiFiMap</string>
     <string name="title_activity_maps">Map</string>
     <string name="google_maps_key">AIzaSyBEwKnJ380uSW5zfJkY9cz0iqRpm54X5vc</string>
+
+    <string name="hint_name_place">Nombre del Lugar</string>
+    <string name="hint_name_wifi">Nombre de la Red</string>
+    <string name="hint_password">Contraseña de la Red</string>
+    <string name="button_accept">Aceptar</string>
+    <string name="button_cancel">Cancelar</string>
 </resources>
