@@ -28,7 +28,38 @@ public class AddWifiActivity extends AppCompatActivity {
         }
     }
 
-    private void clkCancel(View view){
+    private void setTxtViews() {
+    }
+
+    public void clkCancel(View view){
         finish();
     }
+
+    public void clkAccept(View view){
+        NetPoint netPoint = getNetPoint();
+        String URI = "http://localhost:8007/WifiMap/AddWifi?lat=%s&lon=%s&place=%s&name=%s&pwd=%s";
+
+        String.format(URI, netPoint.getLat(), netPoint.getLon(), netPoint.getPlace(), netPoint.getNetName(), netPoint.getNetPwd());
+
+
+    }
+
+    private NetPoint getNetPoint() {
+        TextView txtLatitude = (TextView) findViewById(R.id.txtLatitude);
+        TextView txtLongitude = (TextView) findViewById(R.id.txtLongitude);
+        TextView txtNamePlace = (TextView) findViewById(R.id.txtNamePlace);
+        TextView txtNameWiFi = (TextView) findViewById(R.id.txtNameWiFi);
+        TextView txtPass = (TextView) findViewById(R.id.txtPass);
+
+        double lat = Double.parseDouble(txtLatitude.getText().toString());
+        double lon = Double.parseDouble(txtLongitude.getText().toString());
+        String place = txtNamePlace.getText().toString();
+        String name = txtNameWiFi.getText().toString();
+        String pwd = txtPass.getText().toString();
+
+        NetPoint netPoint = new NetPoint(lat, lon, place, name, pwd);
+
+        return netPoint;
+    }
+
 }
