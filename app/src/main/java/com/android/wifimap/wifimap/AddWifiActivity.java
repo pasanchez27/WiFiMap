@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.wifimap.wifimap.service.WSCaller;
 import com.google.android.gms.maps.model.LatLng;
 
 public class AddWifiActivity extends AppCompatActivity {
@@ -37,11 +38,9 @@ public class AddWifiActivity extends AppCompatActivity {
 
     public void clkAccept(View view){
         NetPoint netPoint = getNetPoint();
-        String URI = "http://localhost:8007/WifiMap/AddWifi?lat=%s&lon=%s&place=%s&name=%s&pwd=%s";
+        new WSCaller().addWifi(netPoint);
 
-        String.format(URI, netPoint.getLat(), netPoint.getLon(), netPoint.getPlace(), netPoint.getNetName(), netPoint.getNetPwd());
-
-
+        finish();
     }
 
     private NetPoint getNetPoint() {
@@ -57,9 +56,7 @@ public class AddWifiActivity extends AppCompatActivity {
         String name = txtNameWiFi.getText().toString();
         String pwd = txtPass.getText().toString();
 
-        NetPoint netPoint = new NetPoint(lat, lon, place, name, pwd);
-
-        return netPoint;
+        return new NetPoint(lat, lon, place, name, pwd);
     }
 
 }
