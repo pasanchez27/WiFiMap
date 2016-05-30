@@ -1,41 +1,42 @@
-package com.android.wifimap.wifimap;
+package com.android.wifimap.wifimap.activity;
 
 import android.content.Intent;
 import android.location.Location;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
+import com.android.wifimap.wifimap.NetPoint;
+import com.android.wifimap.wifimap.R;
+import com.android.wifimap.wifimap.service.IAsyncResponse;
+import com.android.wifimap.wifimap.service.URLBuilder;
+import com.android.wifimap.wifimap.service.WSCaller;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.GoogleMap.OnMapClickListener;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, OnMapClickListener,
-        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, GoogleMap.OnMyLocationChangeListener {
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, GoogleMap.OnMyLocationChangeListener, IAsyncResponse {
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
+    private WSCaller wsCaller;
+    private static Gson gson = new Gson();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +47,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        //Designo a este como el creador de la llamada a los servicios para poder obtener una respuesta asincrona.
+        createCaller();
+
         // Create an instance of GoogleAPIClient.
         if (mGoogleApiClient == null) {
             mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -54,6 +58,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     .addApi(LocationServices.API)
                     .build();
         }
+    }
+
+    private void createCaller() {
+        wsCaller = new WSCaller();
+        wsCaller.delegate = this;
     }
 
     @Override
@@ -80,39 +89,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
-        // Add a marker in Sydney and move the camera
-//        LatLng cba = new LatLng(-31, -64);
-//        mMap.addMarker(new MarkerOptions().position(cba).title("Marker in Córdoba"));
-//        mMap.moveCamera(CameraUpdateFactory.newLatLng(cba));
         mMap.setMyLocationEnabled(true);
         mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-
-
-        setLocations(mMap, getLocations());
 
         mMap.setOnMapClickListener(this);
     }
 
-    private void setLocations(GoogleMap mMap, List<MarkerOptions> locations) {
-        for(MarkerOptions m : locations){
-            mMap.addMarker(m);
-        }
-    }
-
-    private List<MarkerOptions> getLocations(){
-        List<MarkerOptions> markers = new ArrayList<>();
-        MarkerOptions mOption = new MarkerOptions()
-                .position(new LatLng(-31.4196105,-64.1881525))
-                .title("Mc Donalds - Olmos")
-                .snippet("Clave WiFi: prueba")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
-
-        markers.add(mOption);
-
-        return markers;
-    }
-
+    /**
+     * Toma la posición seleccionada en el mapa y llama al Intent de Agregar Red para que el usuario
+     * pueda registrar una nueva red en ese punto.
+     * @param point Posición marcada por el usuario en el mapa.
+     */
     @Override
     public void onMapClick(LatLng point) {
         Intent intentAddWifi = new Intent(this, AddWifiActivity.class);
@@ -131,12 +118,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onConnected(Bundle connectionHint) {
+        //Busca la última posición conocida del móvil.
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
 
         if(mLastLocation != null) {
-            LatLng position = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 12));
+            double latitude = mLastLocation.getLatitude();
+            double longitude = mLastLocation.getLongitude();
+
+            //Hace foco en el mapa en la posición del móvil
+            LatLng position = new LatLng(latitude, longitude);
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 15));
+
+            //Busca los puntos registrados cercanos a la posición.
+            wsCaller.execute(URLBuilder.getWifiListURL(latitude, longitude), "GET");
         }
+
     }
 
     @Override
@@ -158,5 +154,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
 
+    }
+
+    /**
+     * Recibe asincronamente la respuesta del WS con los diferentes puntos cercanos a la posición y los
+     * dibuja en el mapa.
+     * @param result Un objeto JSon que contiene todos los NetPoint cercanos.
+     */
+    @Override
+    public void processFinish(String result) {
+        if(result != null) {
+            List<NetPoint> net = gson.fromJson(result, new TypeToken<List<NetPoint>>() {}.getType());
+
+            for (NetPoint point : net) {
+                MarkerOptions mOption = new MarkerOptions()
+                        .position(new LatLng(point.getLat(), point.getLon()))
+                        .title(point.getPlace())
+                        .snippet("Clave WiFi: " + point.getNetPwd())
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
+
+                mMap.addMarker(mOption);
+            }
+        }
+        createCaller();
     }
 }

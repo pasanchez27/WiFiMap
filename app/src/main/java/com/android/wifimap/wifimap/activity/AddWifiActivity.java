@@ -1,19 +1,27 @@
-package com.android.wifimap.wifimap;
+package com.android.wifimap.wifimap.activity;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.wifimap.wifimap.NetPoint;
+import com.android.wifimap.wifimap.R;
+import com.android.wifimap.wifimap.service.IAsyncResponse;
+import com.android.wifimap.wifimap.service.URLBuilder;
 import com.android.wifimap.wifimap.service.WSCaller;
 import com.google.android.gms.maps.model.LatLng;
 
-public class AddWifiActivity extends AppCompatActivity {
+public class AddWifiActivity extends AppCompatActivity implements IAsyncResponse {
+    private WSCaller wsCaller;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_wifi);
+
+        //Designo a este como el creador de la llamada a los servicios para poder obtener una respuesta asincrona.
+        createCaller();
 
         setValues(getIntent().getExtras());
     }
@@ -29,7 +37,9 @@ public class AddWifiActivity extends AppCompatActivity {
         }
     }
 
-    private void setTxtViews() {
+    private void createCaller() {
+        wsCaller = new WSCaller();
+        wsCaller.delegate = this;
     }
 
     public void clkCancel(View view){
@@ -38,7 +48,7 @@ public class AddWifiActivity extends AppCompatActivity {
 
     public void clkAccept(View view){
         NetPoint netPoint = getNetPoint();
-        new WSCaller().addWifi(netPoint);
+        wsCaller.execute(URLBuilder.getAddWifiURL(netPoint),"GET");
 
         finish();
     }
@@ -59,4 +69,8 @@ public class AddWifiActivity extends AppCompatActivity {
         return new NetPoint(lat, lon, place, name, pwd);
     }
 
+    @Override
+    public void processFinish(String output) {
+        createCaller();
+    }
 }
